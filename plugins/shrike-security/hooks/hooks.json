@@ -1,0 +1,41 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/shrike-pretooluse.sh",
+            "timeout": 30,
+            "statusMessage": "Shrike is scanning this action…"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/shrike-pretooluse.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash|Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/shrike-pretooluse.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

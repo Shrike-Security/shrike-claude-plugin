@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "purpose": "Coding agent in this repository: build, edit, search, and run the project's own commands",
+  "allowed_tools": ["command", "file_path", "file_content", "web_search"],
+  "forbidden_tools": [],
+  "max_duration_seconds": 7200,
+  "renewable_seconds": 86400,
+  "guardrail_paths": [
+    { "path": ".shrike/scope.json", "tier": "require_approval" },
+    { "path": ".claude/hooks", "tier": "block" },
+    { "path": ".claude/settings.json", "tier": "block" },
+    { "path": ".claude/settings.local.json", "tier": "block" },
+    { "path": ".cursor/hooks.json", "tier": "block" },
+    { "path": "CLAUDE.md", "tier": "require_approval" },
+    { "path": ".github/workflows", "tier": "require_approval" },
+    { "path": ".githooks", "tier": "require_approval" },
+    { "path": ".gitignore", "tier": "warn" }
+  ]
+}

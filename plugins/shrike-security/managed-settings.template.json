@@ -1,0 +1,32 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Edit",
+        "hooks": [
+          { "type": "command", "command": "\"/usr/local/lib/shrike-hook/shrike-pretooluse.sh\"", "timeout": 30, "statusMessage": "Shrike is scanning this action…" }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|Write|Edit",
+        "hooks": [
+          { "type": "command", "command": "\"/usr/local/lib/shrike-hook/shrike-pretooluse.sh\"", "timeout": 10 }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash|Write|Edit",
+        "hooks": [
+          { "type": "command", "command": "\"/usr/local/lib/shrike-hook/shrike-pretooluse.sh\"", "timeout": 10 }
+        ]
+      }
+    ]
+  },
+  "env": {
+    "SHRIKE_API_KEY": "REPLACE_WITH_THE_ORG_API_KEY",
+    "SHRIKE_FAILURE_MODE": "closed"
+  }
+}

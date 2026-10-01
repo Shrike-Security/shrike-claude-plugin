@@ -1,0 +1,23 @@
+{
+  "name": "shrike-security",
+  "displayName": "Shrike Security",
+  "version": "1.0.0",
+  "description": "Runtime enforcement for Claude Code: scans shell commands and file writes with Shrike before they execute (allow / warn / require approval / block), and bundles the governed-tool-use skill plus the shrike-mcp security tools.",
+  "author": {
+    "name": "Shrike Security",
+    "email": "support@shrikesecurity.com",
+    "url": "https://shrikesecurity.com"
+  },
+  "homepage": "https://shrikesecurity.com",
+  "license": "Apache-2.0",
+  "keywords": [
+    "security",
+    "governance",
+    "enforcement",
+    "agent-security",
+    "pretooluse",
+    "shrike"
+  ],
+  "hooks": "./hooks/hooks.json",
+  "mcpServers": "./.mcp.json"
+}

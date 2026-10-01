@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "shrike": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "shrike-mcp@4"]
+    }
+  }
+}

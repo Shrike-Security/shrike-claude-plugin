@@ -1,0 +1,16 @@
+{
+  "name": "shrike",
+  "description": "Runtime action governance for Claude Code, from Shrike Security.",
+  "owner": {
+    "name": "Shrike Security",
+    "email": "support@shrikesecurity.com",
+    "url": "https://shrikesecurity.com"
+  },
+  "plugins": [
+    {
+      "name": "shrike-security",
+      "source": "./plugins/shrike-security",
+      "description": "Scans shell commands and file writes before they execute and routes on the verdict: allow, warn, require approval, or block. Bundles the governed-tool-use skill and the shrike-mcp security tools."
+    }
+  ]
+}

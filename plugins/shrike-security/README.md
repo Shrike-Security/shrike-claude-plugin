@@ -1,0 +1,212 @@
+# Shrike Security: plugin for Claude Code
+
+Runtime enforcement for Claude Code. Before Claude Code runs a shell command or
+writes a file, this plugin scans the action with [Shrike](https://shrikesecurity.com)
+and routes on the verdict (allow, warn, require approval, or block) *before*
+the action executes. You can't patch an executed `rm -rf`; you can refuse it.
+
+Shrike is available as a plugin for Claude Code. The plugin is a thin client:
+it contains zero detection logic. All scanning runs on Shrike's backend; the
+operator's policy decides what is allowed.
+
+## What's in the bundle
+
+| Part | What it does |
+|---|---|
+| **PreToolUse hook** | The mandatory gate. Scans `Bash`, `Write`, and `Edit` tool calls with Shrike before Claude Code executes them, and denies on `block` / `require_approval` verdicts with the reason and recovery guidance shown to Claude. |
+| **`governed-tool-use` skill** | The cooperative path. Teaches Claude to scan risky actions proactively, interpret the four-state verdict, and recover from a refusal instead of retrying it. |
+| **`shrike-mcp` server** | The 14 security tools (`scan_command`, `scan_file_write`, `scan_declare_scope`, `check_approval`, …) so Claude can scan, declare task scope, and check approval status itself. Runs via `npx shrike-mcp@4`. |
+
+The skill is how a cooperative agent gets governance right the first time; the
+hook is the gate that holds when the agent isn't cooperative. Together they
+demonstrate the whole architecture: active guidance plus enforcement.
+
+## Setup
+
+1. Get an API key (free tier available) at <https://shrikesecurity.com>.
+2. Export it where Claude Code runs:
+
+   ```sh
+   export SHRIKE_API_KEY=your_key_here
+   ```
+
+3. Install the plugin (from your marketplace of choice once published, or
+   locally while testing):
+
+   ```sh
+   claude plugin install shrike-security
+   ```
+
+Without an API key the plugin is **inert**: nothing is gated, and the hook
+prints a one-line setup pointer once per session. It never breaks an
+unconfigured editor.
+
+## Configuration
+
+`config.json` at the plugin root:
+
+```json
+{
+  "api_key_env": "SHRIKE_API_KEY",
+  "failure_mode": "closed",
+  "gated_tools": ["Bash", "Write", "Edit"],
+  "endpoint": "https://api.shrikesecurity.com/agent"
+}
+```
+
+| Field | Default | Meaning |
+|---|---|---|
+| `api_key_env` | `SHRIKE_API_KEY` | Name of the environment variable holding your Shrike API key. |
+| `failure_mode` | `closed` | What happens when Shrike is **unreachable** (timeout / network / 5xx). `closed`: hold the action. `open`: allow it, with a loud warning on stderr. |
+| `gated_tools` | `Bash`, `Write`, `Edit` | Tools the hook scans. If you widen this list, also widen the `matcher` in `hooks/hooks.json`. |
+| `endpoint` | `https://api.shrikesecurity.com/agent` | Shrike scan API base URL (self-hosted / sovereign deployments point this at their own gateway). |
+
+Environment variable overrides (take precedence over `config.json`):
+`SHRIKE_API_KEY_ENV`, `SHRIKE_FAILURE_MODE`, `SHRIKE_GATED_TOOLS`
+(comma-separated), `SHRIKE_BACKEND_URL`, `SHRIKE_SCAN_TIMEOUT_MS`,
+`SHRIKE_AGENT_ID`.
+
+### Identity: seats and autonomous agents
+
+On a developer machine leave `SHRIKE_AGENT_ID` unset. The hook derives a
+seat id from the machine user and host (`seat:<user>@<host>`, lowercased) and
+sends it on every scan, so each developer is one row on the Agents screen and
+is counted as a seat. Set `SHRIKE_AGENT_ID` only for an autonomous agent (a
+CI runner, a batch job, a service agent): it declares its own id and is
+metered by what it does. The class rides with every scan as
+`identity_class`.
+
+### Failure posture
+
+Verdicts are never optional. An actual `block` verdict is always enforced, in
+every mode. `failure_mode` only governs what happens when **no verdict could
+be obtained**. Failure is always loud and self-explaining:
+
+> `Shrike unreachable, action held (failure_mode=closed)`
+
+`failure_mode: open` is an explicit operator opt-in; the shipped default is
+`closed`.
+
+## How the hook decides
+
+Each gated tool call is sent to Shrike's enforce API with the Claude Code
+`session_id`, so multi-turn session correlation and declared task scopes apply
+across the whole task. The verdict maps as:
+
+| Verdict | Hook behavior |
+|---|---|
+| `allow` | Permit. |
+| `warn` | Permit, with the guidance noted on stderr. |
+| `require_approval` | Deny, with the approval id. A human approves it in the Shrike dashboard; Claude can poll with the `check_approval` MCP tool. |
+| `block` | Deny, with the reason and `recovery.instruction` shown to Claude. A blocked action retried verbatim will block again. |
+
+Deterministic layers answer in tens of milliseconds; the full semantic path
+worst-cases around 2–3 seconds. The hook timeout is set above that, with the
+failure posture governing anything slower.
+
+## Fleet install
+
+One command per machine, or one policy for every machine.
+
+```sh
+# This machine: registers the hook for Claude Code (~/.claude/settings.json)
+# and, when Cursor is installed, its shell hook (~/.cursor/hooks.json).
+./install.sh
+
+# One project instead of the whole machine.
+./install.sh --project /path/to/repo
+
+# Print the managed settings an organization pushes; writes nothing.
+./install.sh --managed --hook-dir /usr/local/lib/shrike-hook
+```
+
+The installer copies the hook to `~/.shrike/hook/`, keeps every other hook
+already in the settings file, and replaces an older Shrike entry instead of
+stacking a second one. Run `./install-check.sh` to see it do all of that in
+a scratch directory.
+
+For a fleet, push the hook files to the same directory on every machine and
+deliver `managed-settings.template.json` (or the `--managed` output) as
+managed settings: `/Library/Application Support/ClaudeCode/managed-settings.json`
+on macOS, `/etc/claude-code/managed-settings.json` on Linux and WSL,
+`C:\Program Files\ClaudeCode\managed-settings.json` on Windows; or the same
+keys as a macOS configuration profile in the `com.anthropic.claudecode`
+domain, or as the `Settings` value under `HKLM\SOFTWARE\Policies\ClaudeCode`.
+Put the organization's API key in the `env` block, leave `SHRIKE_AGENT_ID`
+unset so every machine is a seat, and add `"allowManagedHooksOnly": true` to
+run only the hooks the organization deploys. Cursor teams distribute the
+shell hook through Cursor's team hooks, or ship `.cursor/hooks.json` with the
+`beforeShellExecution` entry the installer writes. The same hook body answers
+both editors: a Cursor shell command is scanned like a Claude Code `Bash`
+call and answered with `allow`, `ask` or `deny` in Cursor's own shape.
+
+## The scope file
+
+A repository can carry its default scope as a checked-in file,
+`.shrike/scope.json`. Every seat that scans from the repository is governed
+by it from its first action: the hook finds the file above the working
+directory, stops at the repository root, and sends it to Shrike under the
+seat's own key when a session first acts, whenever the file changes, and
+every half hour after that.
+
+```sh
+# Start from the template; never overwrites a file that is already there.
+./install.sh --init-scope /path/to/repo
+```
+
+```json
+{
+  "version": 1,
+  "purpose": "Coding agent in this repository",
+  "allowed_tools": ["command", "file_path", "file_content", "web_search"],
+  "forbidden_tools": [],
+  "max_duration_seconds": 7200,
+  "renewable_seconds": 86400,
+  "guardrail_paths": [
+    { "path": ".claude/hooks", "tier": "block" },
+    { "path": "CLAUDE.md", "tier": "require_approval" },
+    { "path": ".gitignore", "tier": "warn" }
+  ]
+}
+```
+
+Three rules decide what the file can do:
+
+- **Under the seat's key the file can only narrow.** What lands is the
+  narrowest of the file and the scope already on record for the seat: tools
+  intersected, forbidden tools and guardrail paths combined at the strictest
+  tier, budget and lifetime at the smaller. A first declaration takes the
+  file as written. Editing the file never widens a seat.
+- **Privileges need an operator.** `authoring_paths` and a wider
+  `work_profile` in the file are set aside under the seat's key and the
+  hook says so. An operator applies the file whole from the Agents screen
+  (Apply scope file), with a preview of what changes per agent.
+- **The file guards itself.** Its own path is added to the guardrail list at
+  `require_approval`, so a coding agent's edit to the file is held for a
+  person's yes. List it at `block` in the file to refuse such edits outright.
+
+Unknown keys are refused, so a misspelled bound cannot read as no bound.
+`enforcement_mode`, `observe_until`, `expires_at` and `agent_id` are not
+file fields: observe mode is set per agent on the Agents screen, with an
+end, and the seat id is the caller's. A file that cannot be applied is
+reported on stderr and the seat keeps whatever scope it already has; the
+file never blocks an action by itself. Cursor's hook gates shell commands
+only, so a file edit from Cursor is not held by the guardrail; Claude Code's
+`Write` and `Edit` are.
+
+## Verify the installation
+
+```sh
+export SHRIKE_API_KEY=your_key_here
+./verify.sh
+```
+
+Runs three synthetic canaries through the hook exactly as Claude Code would:
+a benign command (expect allow), a destructive command (expect deny), and an
+exfil-shaped file write (expect deny). Nothing is ever executed, because the hook
+only scans. Never replace the canaries with working exploits.
+
+## License
+
+Apache-2.0, matching Shrike's other public clients
+(`shrike-mcp`, `shrike-guard-js`, `shrike-guard-python`, `shrike-guard-go`).

@@ -1,0 +1,6 @@
+{
+  "api_key_env": "SHRIKE_API_KEY",
+  "failure_mode": "closed",
+  "gated_tools": ["Bash", "Write", "Edit"],
+  "endpoint": "https://api.shrikesecurity.com/agent"
+}
