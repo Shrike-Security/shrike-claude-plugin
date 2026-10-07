@@ -4,6 +4,27 @@ All notable changes to the Shrike Security plugin for Claude Code.
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.1.1]
+
+Directory readiness. The Claude directory validator blocks a package launcher
+that is not pinned to an exact version, and its security scan looks for data
+the plugin sends without saying so.
+
+### Changed
+
+- **`shrike-mcp` pinned exactly** (`shrike-mcp@4.1.0`, was `shrike-mcp@4`).
+  The plugin no longer picks up server releases automatically; each release
+  bumps the pin here, in the README and in the plugin version. The wiring test
+  now requires the exact form and that the README names the same pin.
+- **`hooks` removed from `plugin.json`.** Claude Code loads `hooks/hooks.json`
+  automatically; the explicit field is a validator warning.
+
+### Added
+
+- **"What leaves your machine"** in the README: per hook, what is sent to the
+  configured endpoint and what never is, how the key travels, and what Shrike
+  does with the content on its side.
+
 ## [1.1.0]
 
 Parity with the hook Shrike runs on its own engineering. The plugin is the

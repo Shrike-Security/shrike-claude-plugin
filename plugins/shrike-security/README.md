@@ -17,7 +17,7 @@ operator's policy decides what is allowed.
 | **Observe-plane hook** | `UserPromptSubmit` scans the prompt and **never gates**: a person is not refused their own words. A flagged prompt becomes context for Claude instead. |
 | **Host-decision hooks** | `PermissionDenied` and `PermissionRequest` record what Claude Code's *own* permission layer decided about an action, kept beside Shrike's verdict rather than instead of it, so you can see both guardrails in one place and tell where they disagree. The fact only: the tool, a digest of the input, the host's stated reason. Never the command or the file body. |
 | **`governed-tool-use` skill** | The cooperative path. Teaches Claude to scan risky actions proactively, interpret the four-state verdict, and recover from a refusal instead of retrying it. |
-| **`shrike-mcp` server** | The 15 security tools (`scan_command`, `scan_file_write`, `scan_declare_scope`, `check_approval`, `report_outcome`, …) so Claude can scan, declare task scope, check approval status, and report what became of an action itself. Runs via `npx shrike-mcp@4`. |
+| **`shrike-mcp` server** | The 15 security tools (`scan_command`, `scan_file_write`, `scan_declare_scope`, `check_approval`, `report_outcome`, …) so Claude can scan, declare task scope, check approval status, and report what became of an action itself. Runs via `npx shrike-mcp@4.1.0`, pinned to an exact version as the Claude directory requires; each release of the server bumps the pin. |
 
 The skill is how a cooperative agent gets governance right the first time; the
 hook is the gate that holds when the agent isn't cooperative. Together they
@@ -110,6 +110,30 @@ across the whole task. The verdict maps as:
 Deterministic layers answer in tens of milliseconds; the full semantic path
 worst-cases around 2–3 seconds. The hook timeout is set above that, with the
 failure posture governing anything slower.
+
+## What leaves your machine
+
+Everything the plugin sends goes to one place, the `endpoint` in `config.json`
+(`https://api.shrikesecurity.com/agent` by default, or your own gateway), over
+HTTPS, authenticated with your Shrike API key. Nothing else is contacted, and
+nothing runs that is not in this folder except the `shrike-mcp` package the
+`.mcp.json` entry launches.
+
+| Hook | What is sent | What is not |
+|---|---|---|
+| `PreToolUse`, `PostToolUse`, `PostToolUseFailure` | The gated tool call: the command text, the file path and the file body being written, the search query or URL; the tool name; Claude Code's `session_id`; the agent id; sub-agent lineage when present; on the post hooks, the outcome. | The tool's return value, your conversation, other files. |
+| `UserPromptSubmit` | The prompt text, for the observe plane. The verdict never gates a prompt. | Prior turns. |
+| `PermissionDenied`, `PermissionRequest` | The fact of the host's decision: tool name, a digest of the input, the host's stated reason. | The command or the file body. |
+
+The key comes from the sensitive plugin option (your operating system's
+credential store) or, for fleets and CI, from the environment variable named in
+`config.json`. It is sent only to the endpoint above, as a bearer token.
+
+Shrike's side: scan content is stored encrypted at rest for the audit trail,
+application logs never carry prompt, command or file text, reports show counts
+and decisions rather than content, and customer content is never used as
+Shrike's test or training material. Privacy policy:
+<https://shrikesecurity.com/privacy>. Support: <support@shrikesecurity.com>.
 
 ## Fleet install
 

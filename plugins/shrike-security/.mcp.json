@@ -3,7 +3,7 @@
     "shrike": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "shrike-mcp@4"]
+      "args": ["-y", "shrike-mcp@4.1.0"]
     }
   }
 }
