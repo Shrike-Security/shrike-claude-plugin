@@ -17,8 +17,17 @@ EOF
 
 bash "$SCRIPT_DIR/install.sh" >/dev/null
 S="$HOME/.claude/settings.json"
+
+# The expected event set is READ FROM hooks.json, never written as a literal.
+# On 2026-10-05 this file pinned exactly three events while the plugin
+# registered six, so it passed against stale truth and reported the installer
+# broken when the installer was the correct one. A literal here is a second
+# source of truth for something that already has one.
+EVENTS="$(jq -r '.hooks | keys | sort | join(",")' "$SCRIPT_DIR/hooks/hooks.json")"
+NEVENTS="$(jq -r '.hooks | keys | length' "$SCRIPT_DIR/hooks/hooks.json")"
+
 check "hook files copied" '[ -x "$HOME/.shrike/hook/shrike-pretooluse.sh" ] && [ -f "$HOME/.shrike/hook/shrike-scan.mjs" ] && [ -f "$HOME/.shrike/config.json" ]'
-check "three events registered" '[ "$(jq -r ".hooks | keys | sort | join(\",\")" "$S")" = "PostToolUse,PostToolUseFailure,PreToolUse" ]'
+check "every event in hooks.json is registered" '[ "$(jq -r ".hooks | keys | sort | join(\",\")" "$S")" = "$EVENTS" ]'
 check "the other hook is kept" '[ "$(jq -r ".hooks.PreToolUse | length" "$S")" = "2" ] && jq -e ".hooks.PreToolUse[0].hooks[0].command == \"/opt/other/hook.sh\"" "$S" >/dev/null'
 check "the other keys are kept" '[ "$(jq -r .model "$S")" = "opus" ]'
 check "our command names the copied hook" 'jq -e ".hooks.PreToolUse[1].hooks[0].command | test(\"\\\\.shrike/hook/shrike-pretooluse.sh\")" "$S" >/dev/null'
@@ -39,8 +48,18 @@ check "with-key writes env" '[ "$(jq -r .env.SHRIKE_API_KEY "$S")" = "shrike_tes
 
 # --managed prints the policy and writes nothing.
 M="$(bash "$SCRIPT_DIR/install.sh" --managed --hook-dir /opt/shrike-hook 2>/dev/null)"
-check "managed policy is valid JSON with the three events and the env block" 'printf "%s" "$M" | jq -e "(.hooks | keys | length) == 3 and .env.SHRIKE_API_KEY == \"REPLACE_WITH_THE_ORG_API_KEY\" and (.hooks.PreToolUse[0].hooks[0].command | test(\"/opt/shrike-hook/\"))" >/dev/null'
-check "managed template file matches the printed shape" 'jq -e "(.hooks | keys | length) == 3 and .env.SHRIKE_FAILURE_MODE == \"closed\"" "$SCRIPT_DIR/managed-settings.template.json" >/dev/null'
+check "managed policy carries every event and the env block" 'printf "%s" "$M" | jq -e "(.hooks | keys | length) == $NEVENTS and .env.SHRIKE_API_KEY == \"REPLACE_WITH_THE_ORG_API_KEY\" and (.hooks.PreToolUse[0].hooks[0].command | test(\"/opt/shrike-hook/\"))" >/dev/null'
+
+# managed-settings.template.json is what an organization pushes through MDM to
+# every machine in a fleet, so a template narrower than the plugin governs a
+# whole fleet more narrowly than a single install, with no error anywhere. It
+# carried three events on three tools until 2026-10-05. Rather than assert a
+# shape, assert EQUALITY with what the installer prints for the documented
+# managed hook directory: the template cannot drift from the installer again.
+TPL_DIFF="$(diff \
+  <(jq -S . "$SCRIPT_DIR/managed-settings.template.json") \
+  <(bash "$SCRIPT_DIR/install.sh" --managed --hook-dir /usr/local/lib/shrike-hook 2>/dev/null | jq -S .) || true)"
+check "managed template is exactly what the installer prints" '[ -z "$TPL_DIFF" ]'
 
 # --init-scope writes the template once and never overwrites.
 bash "$SCRIPT_DIR/install.sh" --init-scope "$T/proj" >/dev/null

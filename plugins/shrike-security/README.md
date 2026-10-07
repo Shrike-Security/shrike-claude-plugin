@@ -13,9 +13,11 @@ operator's policy decides what is allowed.
 
 | Part | What it does |
 |---|---|
-| **PreToolUse hook** | The mandatory gate. Scans `Bash`, `Write`, and `Edit` tool calls with Shrike before Claude Code executes them, and denies on `block` / `require_approval` verdicts with the reason and recovery guidance shown to Claude. |
+| **PreToolUse hook** | The mandatory gate. Scans `Bash`, `Write`, `Edit`, `NotebookEdit`, `WebSearch`, and `WebFetch` tool calls with Shrike before Claude Code executes them, and denies on `block` / `require_approval` verdicts with the reason and recovery guidance shown to Claude. A file edit is scanned twice, the path and then the body, because the authoring-path grant is decided on the path. |
+| **Observe-plane hook** | `UserPromptSubmit` scans the prompt and **never gates**: a person is not refused their own words. A flagged prompt becomes context for Claude instead. |
+| **Host-decision hooks** | `PermissionDenied` and `PermissionRequest` record what Claude Code's *own* permission layer decided about an action, kept beside Shrike's verdict rather than instead of it, so you can see both guardrails in one place and tell where they disagree. The fact only: the tool, a digest of the input, the host's stated reason. Never the command or the file body. |
 | **`governed-tool-use` skill** | The cooperative path. Teaches Claude to scan risky actions proactively, interpret the four-state verdict, and recover from a refusal instead of retrying it. |
-| **`shrike-mcp` server** | The 14 security tools (`scan_command`, `scan_file_write`, `scan_declare_scope`, `check_approval`, …) so Claude can scan, declare task scope, and check approval status itself. Runs via `npx shrike-mcp@4`. |
+| **`shrike-mcp` server** | The 15 security tools (`scan_command`, `scan_file_write`, `scan_declare_scope`, `check_approval`, `report_outcome`, …) so Claude can scan, declare task scope, check approval status, and report what became of an action itself. Runs via `npx shrike-mcp@4`. |
 
 The skill is how a cooperative agent gets governance right the first time; the
 hook is the gate that holds when the agent isn't cooperative. Together they
@@ -24,22 +26,27 @@ demonstrate the whole architecture: active guidance plus enforcement.
 ## Setup
 
 1. Get an API key (free tier available) at <https://shrikesecurity.com>.
-2. Export it where Claude Code runs:
+2. Add the marketplace and install:
 
    ```sh
-   export SHRIKE_API_KEY=your_key_here
+   /plugin marketplace add Shrike-Security/shrike-claude-plugin
+   /plugin install shrike-security
    ```
 
-3. Install the plugin (from your marketplace of choice once published, or
-   locally while testing):
+3. Claude Code asks for the key as the plugin is enabled. It is declared a
+   *sensitive* plugin option, so the value goes to your operating system's
+   credential store rather than into a settings file, and reaches the hook as
+   `CLAUDE_PLUGIN_OPTION_API_KEY`.
 
-   ```sh
-   claude plugin install shrike-security
-   ```
+A key in the environment still works, and it is the right route for anything
+non-interactive: CI, a batch job, a fleet pushed through managed settings. Set
+`SHRIKE_API_KEY` where Claude Code runs. The plugin option wins when both are
+present.
 
-Without an API key the plugin is **inert**: nothing is gated, and the hook
-prints a one-line setup pointer once per session. It never breaks an
-unconfigured editor.
+Without a key the plugin is **inert**: nothing is gated, and once per session
+the hook says so *in Claude's own context*, not on a stream Claude never sees.
+An unconfigured editor keeps working, and it never looks governed when it
+isn't.
 
 ## Configuration
 
@@ -49,7 +56,7 @@ unconfigured editor.
 {
   "api_key_env": "SHRIKE_API_KEY",
   "failure_mode": "closed",
-  "gated_tools": ["Bash", "Write", "Edit"],
+  "gated_tools": ["Bash", "Write", "Edit", "NotebookEdit", "WebSearch", "WebFetch"],
   "endpoint": "https://api.shrikesecurity.com/agent"
 }
 ```
@@ -58,7 +65,7 @@ unconfigured editor.
 |---|---|---|
 | `api_key_env` | `SHRIKE_API_KEY` | Name of the environment variable holding your Shrike API key. |
 | `failure_mode` | `closed` | What happens when Shrike is **unreachable** (timeout / network / 5xx). `closed`: hold the action. `open`: allow it, with a loud warning on stderr. |
-| `gated_tools` | `Bash`, `Write`, `Edit` | Tools the hook scans. If you widen this list, also widen the `matcher` in `hooks/hooks.json`. |
+| `gated_tools` | `Bash`, `Write`, `Edit`, `NotebookEdit`, `WebSearch`, `WebFetch` | Tools the hook scans. If you widen this list, also widen the `matcher` in `hooks/hooks.json`: a tool missing from either side is ungoverned, with no error anywhere. |
 | `endpoint` | `https://api.shrikesecurity.com/agent` | Shrike scan API base URL (self-hosted / sovereign deployments point this at their own gateway). |
 
 Environment variable overrides (take precedence over `config.json`):

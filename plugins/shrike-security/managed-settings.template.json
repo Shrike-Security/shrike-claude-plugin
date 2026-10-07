@@ -2,25 +2,71 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash|Write|Edit",
+        "matcher": "Bash|Write|Edit|NotebookEdit|WebSearch|WebFetch",
         "hooks": [
-          { "type": "command", "command": "\"/usr/local/lib/shrike-hook/shrike-pretooluse.sh\"", "timeout": 30, "statusMessage": "Shrike is scanning this action…" }
+          {
+            "type": "command",
+            "command": "\"/usr/local/lib/shrike-hook/shrike-pretooluse.sh\"",
+            "timeout": 30,
+            "statusMessage": "Shrike is scanning this action…"
+          }
         ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Bash|Write|Edit",
+        "matcher": "Bash|Write|Edit|NotebookEdit|WebSearch|WebFetch",
         "hooks": [
-          { "type": "command", "command": "\"/usr/local/lib/shrike-hook/shrike-pretooluse.sh\"", "timeout": 10 }
+          {
+            "type": "command",
+            "command": "\"/usr/local/lib/shrike-hook/shrike-pretooluse.sh\"",
+            "timeout": 10
+          }
         ]
       }
     ],
     "PostToolUseFailure": [
       {
-        "matcher": "Bash|Write|Edit",
+        "matcher": "Bash|Write|Edit|NotebookEdit|WebSearch|WebFetch",
         "hooks": [
-          { "type": "command", "command": "\"/usr/local/lib/shrike-hook/shrike-pretooluse.sh\"", "timeout": 10 }
+          {
+            "type": "command",
+            "command": "\"/usr/local/lib/shrike-hook/shrike-pretooluse.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/usr/local/lib/shrike-hook/shrike-pretooluse.sh\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PermissionDenied": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/usr/local/lib/shrike-hook/shrike-pretooluse.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/usr/local/lib/shrike-hook/shrike-pretooluse.sh\"",
+            "timeout": 10
+          }
         ]
       }
     ]

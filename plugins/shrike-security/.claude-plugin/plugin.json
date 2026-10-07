@@ -1,8 +1,8 @@
 {
   "name": "shrike-security",
   "displayName": "Shrike Security",
-  "version": "1.0.0",
-  "description": "Runtime enforcement for Claude Code: scans shell commands and file writes with Shrike before they execute (allow / warn / require approval / block), and bundles the governed-tool-use skill plus the shrike-mcp security tools.",
+  "version": "1.1.0",
+  "description": "Runtime enforcement for Claude Code: scans commands, file writes, notebook edits, web searches and fetches with Shrike before they execute (allow / warn / require approval / block), records what Claude Code's own permission layer decided beside Shrike's verdict, and bundles the governed-tool-use skill plus the shrike-mcp security tools.",
   "author": {
     "name": "Shrike Security",
     "email": "support@shrikesecurity.com",
@@ -19,5 +19,13 @@
     "shrike"
   ],
   "hooks": "./hooks/hooks.json",
-  "mcpServers": "./.mcp.json"
+  "mcpServers": "./.mcp.json",
+  "userConfig": {
+    "api_key": {
+      "type": "string",
+      "title": "Shrike API key",
+      "description": "Enables enforcement. Without a key the hook installs but governs nothing. Free key at https://shrikesecurity.com",
+      "sensitive": true
+    }
+  }
 }

@@ -16,8 +16,10 @@
 # What it writes, and never more:
 #   ~/.shrike/hook/       the hook files, copied from beside this script
 #   ~/.shrike/config.json the hook's defaults, unless one is already there
-#   the hooks block for PreToolUse, PostToolUse and PostToolUseFailure, matched to Bash|Write|Edit,
-#   merged into the settings file. Other hooks in the file are kept; an older Shrike entry is replaced.
+#   the hooks block, merged into the settings file: PreToolUse, PostToolUse and PostToolUseFailure
+#   matched to Bash|Write|Edit|NotebookEdit|WebSearch|WebFetch, plus UserPromptSubmit (the observe
+#   plane) and PermissionDenied / PermissionRequest (what the host's own permission layer decided).
+#   Other hooks in the file are kept; an older Shrike entry is replaced.
 #
 # Leave SHRIKE_AGENT_ID unset on a developer machine: the hook derives a seat id
 # from the machine user and the seat is counted as a seat. Set it only for an
@@ -45,7 +47,7 @@ while [ $# -gt 0 ]; do
     --init-scope)
       INIT_SCOPE=yes
       if [ $# -gt 1 ] && [ "${2#-}" = "$2" ]; then INIT_SCOPE_DIR="$2"; shift 2; else shift; fi ;;
-    -h|--help) sed -n '2,27p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,26p' "$0"; exit 0 ;;
     *) echo "install: unknown option $1" >&2; exit 2 ;;
   esac
 done
@@ -71,12 +73,28 @@ for tool in jq node; do
 done
 
 # The hook registration Claude Code reads, for one absolute hook directory.
+#
+# This MUST stay in step with hooks/hooks.json: this function is the manual and
+# --managed install path, that file is the plugin install path, and a user who
+# took one route would otherwise be governed differently from a user who took
+# the other. `tests/wiring.test.mjs` compares the two and fails on drift; it
+# was added after this list sat at three tools and three events while the
+# plugin's own had six of each.
+#
+# The three events with no matcher are not tool calls: UserPromptSubmit scans
+# the prompt on the observe plane and never gates, and PermissionDenied and
+# PermissionRequest record what the HOST's own permission layer decided, beside
+# our verdict rather than instead of it.
 claude_hooks_json() { # $1 = hook dir
   local cmd="\"$1/shrike-pretooluse.sh\""
-  jq -n --arg cmd "$cmd" '{
-    PreToolUse: [{ matcher: "Bash|Write|Edit", hooks: [{ type: "command", command: $cmd, timeout: 30, statusMessage: "Shrike is scanning this action…" }] }],
-    PostToolUse: [{ matcher: "Bash|Write|Edit", hooks: [{ type: "command", command: $cmd, timeout: 10 }] }],
-    PostToolUseFailure: [{ matcher: "Bash|Write|Edit", hooks: [{ type: "command", command: $cmd, timeout: 10 }] }]
+  local m="Bash|Write|Edit|NotebookEdit|WebSearch|WebFetch"
+  jq -n --arg cmd "$cmd" --arg m "$m" '{
+    PreToolUse: [{ matcher: $m, hooks: [{ type: "command", command: $cmd, timeout: 30, statusMessage: "Shrike is scanning this action…" }] }],
+    PostToolUse: [{ matcher: $m, hooks: [{ type: "command", command: $cmd, timeout: 10 }] }],
+    PostToolUseFailure: [{ matcher: $m, hooks: [{ type: "command", command: $cmd, timeout: 10 }] }],
+    UserPromptSubmit: [{ hooks: [{ type: "command", command: $cmd, timeout: 15 }] }],
+    PermissionDenied: [{ hooks: [{ type: "command", command: $cmd, timeout: 10 }] }],
+    PermissionRequest: [{ hooks: [{ type: "command", command: $cmd, timeout: 10 }] }]
   }'
 }
 
