@@ -4,14 +4,30 @@ All notable changes to the Shrike Security plugin for Claude Code.
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.1.5]
+
+One hold that the previous entry created. The 1.1.4 note named the two
+variables the validator had mistaken for credentials, and a changelog that
+spells a credential-shaped name beside a link (this file links to the
+Semantic Versioning site) matches the same rule the note was describing.
+Nothing else changed.
+
+### Changed
+
+- **`CHANGELOG.md`**: the 1.1.4 entry describes the two variables without
+  naming them.
+- **README**, notes for a security review: says that one `verify.sh` canary
+  names a private-key path on purpose, because an exfiltration canary that
+  names nothing worth taking would not test the refusal.
+
 ## [1.1.4]
 
 Three more holds that were names, not behavior. The directory's validator
 holds any file that spells a remote host beside a credential-named variable,
-and read `verify.sh`'s `pass` counter and `install.sh`'s `$PWD` as
-credentials. The hook wrapper was held for the same pairing because its
-no-runtime notice spelled the signup domain beside the key variable it
-checks. None of the three sends anything anywhere.
+and read `verify.sh`'s result counter and the shell's working-directory
+variable in `install.sh` as credentials. The hook wrapper was held for the
+same pairing because its no-runtime notice spelled the signup domain beside
+the key variable it checks. None of the three sends anything anywhere.
 
 ### Changed
 

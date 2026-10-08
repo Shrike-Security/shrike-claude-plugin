@@ -161,7 +161,9 @@ shape a reviewer is right to look at twice. In order:
   nothing outside this folder.
 - **The examples.** `verify.sh` and the skill contain examples of what the
   hook refuses. They are scanned, never executed, and the example host sits
-  on the reserved `.example` domain.
+  on the reserved `.example` domain. One canary names a private-key path on
+  purpose: an exfiltration canary that names nothing worth taking would not
+  test the refusal.
 - **`install-check.sh`** runs this folder's own installer against a scratch
   home directory and reads back what it wrote. It downloads nothing.
 
