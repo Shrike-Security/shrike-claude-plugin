@@ -4,6 +4,26 @@ All notable changes to the Shrike Security plugin for Claude Code.
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.1.2]
+
+Directory listing. The validator's first pass over 1.1.1 came back with seven
+holds; these are the two the plugin can close on its own. The rest (the `npx`
+launcher, the environment-variable key fallback for CI and fleets, the shell
+wrapper that runs the hook script) are explained to the reviewer, not changed.
+
+### Added
+
+- **Listing icon** at `.claude-plugin/icon.png`: the Shrike mark, 512 px PNG.
+  The directory takes the icon once, when a plugin is first saved in the
+  developer portal, and ignores later changes, so it ships before the first
+  submission.
+- **`package.json` and `package-lock.json`** pinning `shrike-mcp@4.1.0` with
+  its registry source and integrity hash, so the directory can verify exactly
+  what the launcher in `.mcp.json` resolves. The lockfile is the Verified-badge
+  requirement; the plugin still starts the server through `npx`. The wiring
+  test now requires the pin in `.mcp.json`, `package.json` and the lockfile to
+  agree, and each `shrike-mcp` release bumps all three with the README.
+
 ## [1.1.1]
 
 Directory readiness. The Claude directory validator blocks a package launcher

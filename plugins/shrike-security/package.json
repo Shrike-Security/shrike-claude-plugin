@@ -1,0 +1,9 @@
+{
+  "name": "shrike-security-claude-plugin",
+  "private": true,
+  "description": "Dependency manifest for the Shrike Security plugin for Claude Code. The plugin runs the shrike-mcp server through the launcher in .mcp.json; this file and package-lock.json pin exactly what that launcher resolves, with registry source and integrity hash, so the Claude directory can verify it. Not published.",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "shrike-mcp": "4.1.0"
+  }
+}

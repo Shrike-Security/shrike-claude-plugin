@@ -1,7 +1,7 @@
 {
   "name": "shrike-security",
   "displayName": "Shrike Security",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Runtime enforcement for Claude Code: scans commands, file writes, notebook edits, web searches and fetches with Shrike before they execute (allow / warn / require approval / block), records what Claude Code's own permission layer decided beside Shrike's verdict, and bundles the governed-tool-use skill plus the shrike-mcp security tools.",
   "author": {
     "name": "Shrike Security",
