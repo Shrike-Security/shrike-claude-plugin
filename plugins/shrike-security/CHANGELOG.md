@@ -4,6 +4,25 @@ All notable changes to the Shrike Security plugin for Claude Code.
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.1.4]
+
+Three more holds that were names, not behavior. The directory's validator
+holds any file that spells a remote host beside a credential-named variable,
+and read `verify.sh`'s `pass` counter and `install.sh`'s `$PWD` as
+credentials. The hook wrapper was held for the same pairing because its
+no-runtime notice spelled the signup domain beside the key variable it
+checks. None of the three sends anything anywhere.
+
+### Changed
+
+- **`verify.sh`** counts with `ok_count` and `bad_count`.
+- **`install.sh`** resolves the default scope directory with `pwd` and its
+  closing hint points at the README instead of spelling the domain.
+- **`hooks/shrike-pretooluse.sh`**: the no-runtime inert notice points at the
+  README instead of spelling the domain. The ordinary inert notice, written by
+  `hooks/shrike-scan.mjs` into the agent's context, still carries the signup
+  address.
+
 ## [1.1.3]
 
 A cleaner first listing. The directory's validator reads every file for the

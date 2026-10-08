@@ -49,7 +49,7 @@ key_env="${key_env:-SHRIKE_API_KEY}"
 
 # No key configured → the hook is inert regardless of runtime; permit quietly.
 if [ -z "${!key_env:-}" ]; then
-  echo "[shrike] hook inert: set $key_env to enable enforcement (free key: https://shrikesecurity.com)" >&2
+  echo "[shrike] hook inert: set $key_env to enable enforcement (free key: see the README, Setup)" >&2
   exit 0
 fi
 

@@ -55,7 +55,7 @@ done
 # --init-scope: the checked-in default scope, from the template, never over
 # a file that is already there. Needs no runtime; it is a copy.
 if [ "$INIT_SCOPE" = yes ]; then
-  dir="${INIT_SCOPE_DIR:-$PWD}"
+  dir="${INIT_SCOPE_DIR:-$(pwd)}"
   target="$dir/.shrike/scope.json"
   if [ -f "$target" ]; then
     echo "install: $target already exists; not overwritten"
@@ -183,6 +183,6 @@ if [ "$want_cursor" = yes ]; then
 fi
 
 if [ -z "${SHRIKE_API_KEY:-}" ] && [ "$WITH_KEY" = no ]; then
-  echo "install: export SHRIKE_API_KEY where the editor runs, or the hook stays inert (free key: https://shrikesecurity.com)"
+  echo "install: export SHRIKE_API_KEY where the editor runs, or the hook stays inert (free key: see the README, Setup)"
 fi
 echo "install: done. Leave SHRIKE_AGENT_ID unset on a developer machine; the hook derives a seat id."
