@@ -12,19 +12,14 @@
 # (the hook only SCANS the payloads), and the exfil canary targets the
 # reserved `.example` TLD. Never replace these with working exploits.
 #
-# Requires: node 18+, and the API key exported in the env var named by
-# config.json's api_key_env (default SHRIKE_API_KEY).
+# Requires: node 18+, and the API key configured the way the hook reads it
+# (the plugin's sensitive option, or the environment variable named by
+# config.json's api_key_env). This script never reads the key itself: when
+# the hook answers inert, the first canary reports that and the run fails.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$SCRIPT_DIR/hooks/shrike-pretooluse.sh"
-
-KEY_ENV="${SHRIKE_API_KEY_ENV:-SHRIKE_API_KEY}"
-if [ -z "${!KEY_ENV:-}" ]; then
-  echo "verify: $KEY_ENV is not set, so the hook would run inert." >&2
-  echo "verify: export $KEY_ENV=<your key> and re-run." >&2
-  exit 1
-fi
 
 ts="$(date +%s)"
 pass=0
@@ -33,8 +28,18 @@ fail=0
 run_canary() {
   local name="$1" expect="$2" payload="$3"
   local out
-  # The hook always exits 0; the decision travels as JSON on stdout.
-  out="$(printf '%s' "$payload" | "$HOOK" 2>/dev/null || true)"
+  # The hook always exits 0; the decision travels as JSON on stdout. stderr
+  # rides along so the no-runtime notice is seen too.
+  out="$(printf '%s' "$payload" | "$HOOK" 2>&1 || true)"
+
+  # No key configured: the hook permits and says it is inert, as context for
+  # the agent (node present) or on stderr (no node). Every canary would then
+  # "pass" by permitting, so say so and stop instead.
+  if printf '%s' "$out" | grep -qi 'inert'; then
+    echo "verify: the hook ran inert (no API key configured), so nothing was scanned." >&2
+    echo "verify: set the plugin's API key option, or export the variable named by config.json's api_key_env, and re-run." >&2
+    exit 1
+  fi
 
   local got="permit"
   if printf '%s' "$out" | grep -q '"permissionDecision":"deny"'; then

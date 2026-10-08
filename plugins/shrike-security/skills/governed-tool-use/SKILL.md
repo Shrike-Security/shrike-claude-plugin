@@ -62,8 +62,9 @@ content verdict is a paperwork problem (refresh or ask an operator), not a
 sign the action was hostile. A hold does not raise your session risk.
 
 Under a live scope, a file write whose content merely *describes* a threat
-(a migration with an injection pattern in a comment, a hook script that
-names `curl | bash`, a test fixture with a script tag) comes back `warn`
+(a migration with an injection pattern in a comment, a hook script whose
+comment describes piping a download into a shell, a test fixture with a
+script tag) comes back `warn`
 rather than `block`: proceed, and leave the finding on the record. A `warn`
 does not raise your session risk either. Commands and queries are never
 softened this way; a blocked command is a blocked command.

@@ -135,6 +135,36 @@ and decisions rather than content, and customer content is never used as
 Shrike's test or training material. Privacy policy:
 <https://shrikesecurity.com/privacy>. Support: <support@shrikesecurity.com>.
 
+### Runtime
+
+The hook runs on Node 18 or newer. The bundled `shrike-mcp` server needs
+Node 20 or newer, because the MCP SDK it is built on depends on a package
+that declares that floor. With an older Node the hook still governs; the
+MCP tools are what would fail to start.
+
+### Notes for a security review
+
+A plugin that reads a credential and talks to a server is, on its face, the
+shape a reviewer is right to look at twice. In order:
+
+- **The key.** Read from the sensitive plugin option, or from the environment
+  variable named in `config.json` for CI and fleets. It is sent only to
+  `endpoint`, as a bearer token, and the host written in the hook files is
+  Shrike's own. No other host is contacted by anything in this folder.
+- **The lockfile.** `package.json` and `package-lock.json` pin exactly what
+  the `npx` launcher in `.mcp.json` resolves, with registry sources and
+  integrity hashes, so what is installed is what was scanned. Nothing else is
+  installed.
+- **The hook wrapper.** `hooks/shrike-pretooluse.sh` computes only its own
+  directory, so the same file works from the plugin folder and from the fleet
+  install path, then runs the bundled `hooks/shrike-scan.mjs`. It reaches
+  nothing outside this folder.
+- **The examples.** `verify.sh` and the skill contain examples of what the
+  hook refuses. They are scanned, never executed, and the example host sits
+  on the reserved `.example` domain.
+- **`install-check.sh`** runs this folder's own installer against a scratch
+  home directory and reads back what it wrote. It downloads nothing.
+
 ## Fleet install
 
 One command per machine, or one policy for every machine.

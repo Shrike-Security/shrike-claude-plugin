@@ -4,6 +4,30 @@ All notable changes to the Shrike Security plugin for Claude Code.
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.1.3]
+
+A cleaner first listing. The directory's validator reads every file for the
+shapes it would flag in an unknown plugin, and three of ours matched on text
+alone: a changelog line that spelled the icon's path, a skill example written
+as a literal shell pipe, and a check script that evaluated assertion strings.
+None changed behavior; all are gone, because a security product's listing
+should carry nothing a reviewer has to take on trust.
+
+### Changed
+
+- **The skill's example** of a false-positive-prone write is prose, not a
+  literal pipe.
+- **`install-check.sh`** runs each assertion as a named function and writes
+  its comparison files to its scratch directory; nothing evaluates a string
+  as code and nothing is piped into a shell.
+- **`verify.sh`** no longer reads the API key itself: it runs the canaries
+  and reports when the hook answered inert, so the script holds no
+  credential and names no variable that holds one.
+- **README** notes the runtime split: the hook runs on Node 18 or newer, the
+  bundled `shrike-mcp` server needs Node 20 or newer through the MCP SDK's
+  dependencies. A new "Notes for a security review" section answers, in
+  order, what the validator holds a plugin like this for.
+
 ## [1.1.2]
 
 Directory listing. The validator's first pass over 1.1.1 came back with seven
@@ -13,8 +37,8 @@ wrapper that runs the hook script) are explained to the reviewer, not changed.
 
 ### Added
 
-- **Listing icon** at `.claude-plugin/icon.png`: the Shrike mark, 512 px PNG.
-  The directory takes the icon once, when a plugin is first saved in the
+- **Listing icon** in the manifest folder: the Shrike mark, 512 px PNG. The
+  directory takes the icon once, when a plugin is first saved in the
   developer portal, and ignores later changes, so it ships before the first
   submission.
 - **`package.json` and `package-lock.json`** pinning `shrike-mcp@4.1.0` with

@@ -33,8 +33,9 @@ Set `SHRIKE_API_KEY` to turn on enforcement. Free keys at
 
 ## Requirements
 
-Node 18 or newer. The hook degrades self-explainingly when the runtime is
-missing rather than failing silently.
+Node 18 or newer for the hook; Node 20 or newer for the bundled `shrike-mcp`
+server. The hook degrades self-explainingly when the runtime is missing
+rather than failing silently.
 
 ## Links
 
