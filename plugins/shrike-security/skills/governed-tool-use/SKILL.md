@@ -12,7 +12,7 @@ description: >-
 
 # Governed tool use with Shrike
 
-Shrike's MCP tools are a security cascade you call **before** you act. This
+Shrike's MCP tools are security checks you call **before** you act. This
 skill is the loop for using them well:
 
 > **scan the action → interpret the verdict → act or recover cooperatively**
@@ -117,17 +117,26 @@ Instead:
 - One bounded exception: when your session is locked and you hold a live
   declared scope with its renewal window open, `reset_session` releases the
   lock, at most three times per window, and each release is audited for the
-  operator. Read the response: `released_under_scope` and
+  operator. A locked response names the session it holds in
+  `session_state.session_id`; pass that value as `reset_session`'s
+  `session_id`, because the session your tools run under may not be the one
+  the lock is on. Read the response: `released_under_scope` and
   `releases_remaining` tell you where you stand; a refusal names its
   `reason` (`scope_expired`: refresh the scope; `ceiling_reached` or
   `release_limit`: an operator must act). Never retry a refused release.
 
 ## Two things this skill is NOT
 
-- **It is not the enforcement.** Shrike gates actions at the MCP/SDK/proxy
-  layer regardless of whether you follow this skill. This skill is how a
-  cooperative agent gets governance right the first time: it makes the
-  well-behaved path smooth, it does not replace the gate.
+- **It is not the enforcement, and the enforcement is not everywhere.** Where
+  Shrike sits in the path of an action (the Claude Code plugin's hooks, an SDK
+  guard around a tool, the proxy), the action is gated whether or not you
+  follow this skill. Where only the MCP tools are present, as in the Claude
+  Desktop app or any chat surface, nothing scans an action you did not scan,
+  and the audit record holds only what you sent. On those surfaces you are the
+  gate, which is why the loop above says scan before every side effect, not
+  only the ones that look risky. This skill is how a cooperative agent gets
+  governance right the first time: it makes the well-behaved path smooth, it
+  does not replace a gate.
 - **It does not explain detection.** You do not need to know *why* something
   scored as it did to act correctly. Route on the verdict; the reasoning
   stays on Shrike's backend.

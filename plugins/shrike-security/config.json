@@ -1,6 +1,7 @@
 {
   "api_key_env": "SHRIKE_API_KEY",
   "failure_mode": "closed",
-  "gated_tools": ["Bash", "Write", "Edit", "NotebookEdit", "WebSearch", "WebFetch"],
+  "gated_tools": ["Agent", "SubagentHandback", "Bash", "Write", "Edit", "NotebookEdit", "WebSearch", "WebFetch", "mcp__.*", "Read", "Grep", "Glob"],
+  "delegation_gate": "enforce",
   "endpoint": "https://api.shrikesecurity.com/agent"
 }

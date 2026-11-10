@@ -17,9 +17,10 @@
 #   ~/.shrike/hook/       the hook files, copied from beside this script
 #   ~/.shrike/config.json the hook's defaults, unless one is already there
 #   the hooks block, merged into the settings file: PreToolUse, PostToolUse and PostToolUseFailure
-#   matched to Bash|Write|Edit|NotebookEdit|WebSearch|WebFetch, plus UserPromptSubmit (the observe
-#   plane) and PermissionDenied / PermissionRequest (what the host's own permission layer decided).
-#   Other hooks in the file are kept; an older Shrike entry is replaced.
+#   matched to Agent|SubagentHandback|Bash|Write|Edit|NotebookEdit|WebSearch|WebFetch|mcp__.*|Read|Grep|Glob, plus UserPromptSubmit and
+#   Stop (the observe plane: the prompt and the reply), SubagentStop (a sub-agent's report back
+#   to its parent) and PermissionDenied / PermissionRequest (what the host's own permission layer
+#   decided). Other hooks in the file are kept; an older Shrike entry is replaced.
 #
 # Leave SHRIKE_AGENT_ID unset on a developer machine: the hook derives a seat id
 # from the machine user and the seat is counted as a seat. Set it only for an
@@ -81,18 +82,23 @@ done
 # was added after this list sat at three tools and three events while the
 # plugin's own had six of each.
 #
-# The three events with no matcher are not tool calls: UserPromptSubmit scans
-# the prompt on the observe plane and never gates, and PermissionDenied and
-# PermissionRequest record what the HOST's own permission layer decided, beside
-# our verdict rather than instead of it.
+# The events with no matcher are not tool calls: UserPromptSubmit scans the
+# prompt on the observe plane and never gates; Stop scans the reply the same
+# way, so an exchange has its last station; SubagentStop scans a sub-agent's
+# report back to its parent (observed by default, config delegation_gate);
+# and PermissionDenied and PermissionRequest record what the HOST's own
+# permission layer decided, beside our verdict rather than instead of it.
 claude_hooks_json() { # $1 = hook dir
   local cmd="\"$1/shrike-pretooluse.sh\""
-  local m="Bash|Write|Edit|NotebookEdit|WebSearch|WebFetch"
+  local m="Agent|SubagentHandback|Bash|Write|Edit|NotebookEdit|WebSearch|WebFetch|mcp__.*|Read|Grep|Glob"
   jq -n --arg cmd "$cmd" --arg m "$m" '{
-    PreToolUse: [{ matcher: $m, hooks: [{ type: "command", command: $cmd, timeout: 30, statusMessage: "Shrike is scanning this action…" }] }],
+    PreToolUse: [{ matcher: $m, hooks: [{ type: "command", command: $cmd, timeout: 40, statusMessage: "Shrike is scanning this action…" }] }],
     PostToolUse: [{ matcher: $m, hooks: [{ type: "command", command: $cmd, timeout: 10 }] }],
     PostToolUseFailure: [{ matcher: $m, hooks: [{ type: "command", command: $cmd, timeout: 10 }] }],
     UserPromptSubmit: [{ hooks: [{ type: "command", command: $cmd, timeout: 15 }] }],
+    Stop: [{ hooks: [{ type: "command", command: $cmd, timeout: 15 }] }],
+    SubagentStart: [{ hooks: [{ type: "command", command: $cmd, timeout: 10 }] }],
+    SubagentStop: [{ hooks: [{ type: "command", command: $cmd, timeout: 15 }] }],
     PermissionDenied: [{ hooks: [{ type: "command", command: $cmd, timeout: 10 }] }],
     PermissionRequest: [{ hooks: [{ type: "command", command: $cmd, timeout: 10 }] }]
   }'
@@ -108,7 +114,7 @@ if [ "$MANAGED" = yes ]; then
   }'
   cat >&2 <<EOF
 
-Push the hook files to $HOOK_DIR_MANAGED on every machine (hooks/shrike-scan.mjs,
+Push the hook files to $HOOK_DIR_MANAGED on every machine (every hooks/*.mjs module,
 hooks/shrike-pretooluse.sh, and config.json one directory above them), then deliver
 the JSON above as managed settings:
   macOS          /Library/Application Support/ClaudeCode/managed-settings.json
@@ -128,7 +134,9 @@ fi
 HOOK_HOME="${SHRIKE_HOOK_HOME:-$HOME/.shrike}"
 HOOK_DIR="$HOOK_HOME/hook"
 mkdir -p "$HOOK_DIR"
-cp "$SCRIPT_DIR/hooks/shrike-scan.mjs" "$SCRIPT_DIR/hooks/shrike-pretooluse.sh" "$HOOK_DIR/"
+# Every module: shrike-scan.mjs imports its siblings (host-facts, next-steps),
+# and a missing one fails at load, before any action is checked.
+cp "$SCRIPT_DIR"/hooks/*.mjs "$SCRIPT_DIR/hooks/shrike-pretooluse.sh" "$HOOK_DIR/"
 chmod +x "$HOOK_DIR/shrike-pretooluse.sh"
 [ -f "$HOOK_HOME/config.json" ] || cp "$SCRIPT_DIR/config.json" "$HOOK_HOME/config.json"
 

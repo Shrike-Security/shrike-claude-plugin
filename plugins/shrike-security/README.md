@@ -1,27 +1,49 @@
 # Shrike Security: plugin for Claude Code
 
-Runtime enforcement for Claude Code. Before Claude Code runs a shell command or
-writes a file, this plugin scans the action with [Shrike](https://shrikesecurity.com)
-and routes on the verdict (allow, warn, require approval, or block) *before*
-the action executes. You can't patch an executed `rm -rf`; you can refuse it.
+Governs the actions Claude Code takes, against the policy you declare. Before
+Claude Code runs a shell command, writes a file, edits a notebook, searches or
+fetches the web, or hands a brief to a sub-agent, this plugin scans the action
+with [Shrike](https://shrikesecurity.com) and applies your policy to what's
+allowed, warned, held for approval, or blocked, *before* the action executes.
+You can't patch an executed `rm -rf`; you can refuse it.
 
 Shrike is available as a plugin for Claude Code. The plugin is a thin client:
-it contains zero detection logic. All scanning runs on Shrike's backend; the
-operator's policy decides what is allowed.
+it contains zero detection logic. All scanning runs on Shrike's backend. Shrike
+doesn't decide on its own authority; you declare the policy and Shrike enforces it.
 
 ## What's in the bundle
 
 | Part | What it does |
 |---|---|
-| **PreToolUse hook** | The mandatory gate. Scans `Bash`, `Write`, `Edit`, `NotebookEdit`, `WebSearch`, and `WebFetch` tool calls with Shrike before Claude Code executes them, and denies on `block` / `require_approval` verdicts with the reason and recovery guidance shown to Claude. A file edit is scanned twice, the path and then the body, because the authoring-path grant is decided on the path. |
-| **Observe-plane hook** | `UserPromptSubmit` scans the prompt and **never gates**: a person is not refused their own words. A flagged prompt becomes context for Claude instead. |
+| **PreToolUse hook** | The mandatory gate. Scans `Bash`, `Write`, `Edit`, `NotebookEdit`, `WebSearch`, `WebFetch`, `Agent`, every MCP tool call (`mcp__*`, except Shrike's own) and every read (`Read`, `Grep`, `Glob`) with Shrike before Claude Code executes them, and denies on `block` / `require_approval` verdicts with the reason and recovery guidance shown to Claude. A file write with a body is one scan on the body channel, which validates the path first; a write with no body scans the path alone. |
+| **Observe-plane hooks** | **Off by default.** Turn on the `scan_conversation` option (or set `SHRIKE_SCAN_CONVERSATION=1`) and `UserPromptSubmit` scans the prompt and `Stop` scans the model's final reply. Neither **ever gates**: a person is not refused their own words, and a finished turn has nothing left to refuse. A flagged prompt becomes context for Claude; a flagged reply is shown as a system message. Together with the gated actions between them, a session reads as exchanges: ask, actions, reply. |
+| **Delegation hooks** | The `Agent` tool's brief to a sub-agent is scanned on the agent-to-agent channel before the spawn, and the sub-agent's report is scanned before the parent acts on it: `SubagentStop` reads its final message, and on Claude Code 2.1.271 or later a report handed back through the `SubagentHandback` tool is scanned on that call. Decided like any other action by default (`delegation_gate: enforce`): a flagged brief is refused and a flagged report is returned to the sub-agent with the reason. An agent in observe mode observes its delegations inside its own observe window, which has an end date and shows on the Agents screen. Claude Code's own internal agents (prompt suggestions, side questions) are not delegations and are not judged. |
 | **Host-decision hooks** | `PermissionDenied` and `PermissionRequest` record what Claude Code's *own* permission layer decided about an action, kept beside Shrike's verdict rather than instead of it, so you can see both guardrails in one place and tell where they disagree. The fact only: the tool, a digest of the input, the host's stated reason. Never the command or the file body. |
 | **`governed-tool-use` skill** | The cooperative path. Teaches Claude to scan risky actions proactively, interpret the four-state verdict, and recover from a refusal instead of retrying it. |
-| **`shrike-mcp` server** | The 15 security tools (`scan_command`, `scan_file_write`, `scan_declare_scope`, `check_approval`, `report_outcome`, …) so Claude can scan, declare task scope, check approval status, and report what became of an action itself. Runs via `npx shrike-mcp@4.1.0`, pinned to an exact version as the Claude directory requires; each release of the server bumps the pin. |
+| **`shrike-mcp` server** | The 15 security tools (`scan_command`, `scan_file_write`, `scan_declare_scope`, `check_approval`, `report_outcome`, …) so Claude can scan, declare task scope, check approval status, and report what became of an action itself. Runs via `npx shrike-mcp@4.2.0`, pinned to an exact version as the Claude directory requires; each release of the server bumps the pin. |
 
 The skill is how a cooperative agent gets governance right the first time; the
 hook is the gate that holds when the agent isn't cooperative. Together they
 demonstrate the whole architecture: active guidance plus enforcement.
+
+## Where the plugin runs
+
+The same folder loads differently on each Claude surface, and the difference
+that matters is whether anything gates an action.
+
+| Surface | What loads | What governs |
+|---|---|---|
+| **Claude Code** (terminal, IDE extensions, the Desktop app's Code tab) | Hooks, skill and the bundled `shrike-mcp` server. The key is asked for as the plugin is enabled. | The hook gates every gated tool call. Full enforcement. |
+| **Cowork** (Desktop app) | Hooks, skill and the bundled server. Cowork does not prompt for plugin options, so the key must reach the hook as `SHRIKE_API_KEY` in the environment the app runs in; without it the plugin is inert and says so. | The hook, when the key reaches it. |
+| **Chat** (claude.ai, the Desktop app's chat, mobile) | The skill only. Hooks and the bundled server do not load on chat surfaces. | Nothing gates an action here. |
+
+A chat seat can still have the scan tools. The Desktop app loads `shrike-mcp`
+from its own MCP configuration file, with the key and an agent id in the
+server's environment, and the skill then has Claude scan before it acts. That
+is cooperative governance with a complete audit record on the dashboard, not a
+gate: an action Claude takes without scanning is neither scanned nor recorded.
+Start such seats in observe mode on the Agents screen for their first week,
+then enforce.
 
 ## Setup
 
@@ -56,7 +78,8 @@ isn't.
 {
   "api_key_env": "SHRIKE_API_KEY",
   "failure_mode": "closed",
-  "gated_tools": ["Bash", "Write", "Edit", "NotebookEdit", "WebSearch", "WebFetch"],
+  "gated_tools": ["Agent", "SubagentHandback", "Bash", "Write", "Edit", "NotebookEdit", "WebSearch", "WebFetch", "mcp__.*", "Read", "Grep", "Glob"],
+  "delegation_gate": "enforce",
   "endpoint": "https://api.shrikesecurity.com/agent"
 }
 ```
@@ -64,14 +87,16 @@ isn't.
 | Field | Default | Meaning |
 |---|---|---|
 | `api_key_env` | `SHRIKE_API_KEY` | Name of the environment variable holding your Shrike API key. |
+| `api_key_helper` | none | A command whose first line of output is the API key, run on each hook call (5 second limit). For fleets: read the key from your secrets manager or the OS keychain instead of shipping it in a settings file. Order of precedence: the plugin's key option, then this helper, then `api_key_env`. A helper that fails, times out or prints nothing holds gated actions under `failure_mode=closed`; it never makes the hook inert. |
 | `failure_mode` | `closed` | What happens when Shrike is **unreachable** (timeout / network / 5xx). `closed`: hold the action. `open`: allow it, with a loud warning on stderr. |
-| `gated_tools` | `Bash`, `Write`, `Edit`, `NotebookEdit`, `WebSearch`, `WebFetch` | Tools the hook scans. If you widen this list, also widen the `matcher` in `hooks/hooks.json`: a tool missing from either side is ungoverned, with no error anywhere. |
+| `gated_tools` | `Agent`, `SubagentHandback`, `Bash`, `Write`, `Edit`, `NotebookEdit`, `WebSearch`, `WebFetch`, `mcp__.*`, `Read`, `Grep`, `Glob` | Tools the hook scans. An entry ending in `.*` is a prefix: `mcp__.*` is every MCP tool, judged by its full name against the agent's scope and by its arguments. Shrike's own MCP tools are never judged. A read is refused only when it opens a credential store; a clean read is counted for the session and not stored, so it uses no scan quota. If you widen this list, also widen the `matcher` in `hooks/hooks.json`: a tool missing from either side is ungoverned, with no error anywhere. |
+| `delegation_gate` | `enforce` | What a non-allow verdict on a delegation does: the `Agent` tool's brief on the way out, and the sub-agent's report on the way back (`SubagentStop`, or the `SubagentHandback` call on Claude Code 2.1.271 or later). `enforce`: the delegation is decided like any other action, so the agent's own observe mode, with its end date, applies to it. `observe`: the plugin observes delegation on its own with no end date; Claude is told and the delegation proceeds. Deprecated, removed in the next release. |
 | `endpoint` | `https://api.shrikesecurity.com/agent` | Shrike scan API base URL (self-hosted / sovereign deployments point this at their own gateway). |
 
 Environment variable overrides (take precedence over `config.json`):
-`SHRIKE_API_KEY_ENV`, `SHRIKE_FAILURE_MODE`, `SHRIKE_GATED_TOOLS`
-(comma-separated), `SHRIKE_BACKEND_URL`, `SHRIKE_SCAN_TIMEOUT_MS`,
-`SHRIKE_AGENT_ID`.
+`SHRIKE_API_KEY_ENV`, `SHRIKE_API_KEY_HELPER`, `SHRIKE_FAILURE_MODE`, `SHRIKE_GATED_TOOLS`
+(comma-separated), `SHRIKE_DELEGATION_GATE`, `SHRIKE_BACKEND_URL`,
+`SHRIKE_SCAN_TIMEOUT_MS`, `SHRIKE_AGENT_ID`.
 
 ### Identity: seats and autonomous agents
 
@@ -107,9 +132,13 @@ across the whole task. The verdict maps as:
 | `require_approval` | Deny, with the approval id. A human approves it in the Shrike dashboard; Claude can poll with the `check_approval` MCP tool. |
 | `block` | Deny, with the reason and `recovery.instruction` shown to Claude. A blocked action retried verbatim will block again. |
 
-Deterministic layers answer in tens of milliseconds; the full semantic path
-worst-cases around 2–3 seconds. The hook timeout is set above that, with the
-failure posture governing anything slower.
+The hook's time limit leaves room for a slow scan, and the failure posture
+governs anything slower.
+
+One scan reads up to 100 KB. An action larger than that is refused with its
+size, because a partial scan would let the unread part run unchecked; split
+the write and each piece is scanned. A prompt or reply larger than that is
+scanned on its opening and its end, and the record notes that it was cut.
 
 ## What leaves your machine
 
@@ -121,18 +150,21 @@ nothing runs that is not in this folder except the `shrike-mcp` package the
 
 | Hook | What is sent | What is not |
 |---|---|---|
-| `PreToolUse`, `PostToolUse`, `PostToolUseFailure` | The gated tool call: the command text, the file path and the file body being written, the search query or URL; the tool name; Claude Code's `session_id`; the agent id; sub-agent lineage when present; on the post hooks, the outcome. | The tool's return value, your conversation, other files. |
-| `UserPromptSubmit` | The prompt text, for the observe plane. The verdict never gates a prompt. | Prior turns. |
+| `PreToolUse`, `PostToolUse`, `PostToolUseFailure` | The gated tool call: the command text, the file path and the file body being written, the search query or URL, the brief handed to a sub-agent with the host's one-line name for the task (the `Agent` call's `description`, capped), the report a sub-agent hands back; the tool name; Claude Code's `session_id` and the id of the exchange being answered; the agent id; the sub-agent's id and type when one acted; on the post hooks, the outcome, and on the `Agent` call's return the id of the sub-agent it started with the run's duration, token and tool-use counts as the host reports them. | The tool's return value, other files, the sub-agent's text on the call's return. |
+| `SubagentStart` | That a sub-agent started: its id and type, the session id, the time. Not sent for Claude Code's own internal agents. | Anything the sub-agent was asked or said. |
+| `UserPromptSubmit`, `Stop` | **Nothing, unless you turn on `scan_conversation`.** With it on: the prompt text, and at the end of the turn the model's final reply, for the observe plane. Neither verdict gates anything. | Prior turns, the model's reasoning, tool results. |
+| `SubagentStop` | That the sub-agent stopped, with its id and type and the time; then its final message back to the parent, on the agent-to-agent channel: its report, or only its closing text when the report was handed back through `SubagentHandback` and scanned on that call. Not sent for Claude Code's own internal agents. Under the default `delegation_gate: enforce` a flagged report is returned to the sub-agent with the reason. | The sub-agent's transcript, its tool results. |
 | `PermissionDenied`, `PermissionRequest` | The fact of the host's decision: tool name, a digest of the input, the host's stated reason. | The command or the file body. |
 
 The key comes from the sensitive plugin option (your operating system's
 credential store) or, for fleets and CI, from the environment variable named in
 `config.json`. It is sent only to the endpoint above, as a bearer token.
 
-Shrike's side: scan content is stored encrypted at rest for the audit trail,
-application logs never carry prompt, command or file text, reports show counts
-and decisions rather than content, and customer content is never used as
-Shrike's test or training material. Privacy policy:
+Shrike's side: a safe scan keeps a hash and metadata only, with no content;
+the content of a flagged or refused scan is stored encrypted at rest for the
+audit trail. Application logs never carry prompt, command or file text,
+reports show counts and decisions rather than content, and customer content
+is never used as Shrike's test or training material. Privacy policy:
 <https://shrikesecurity.com/privacy>. Support: <support@shrikesecurity.com>.
 
 ### Runtime
@@ -195,7 +227,11 @@ on macOS, `/etc/claude-code/managed-settings.json` on Linux and WSL,
 `C:\Program Files\ClaudeCode\managed-settings.json` on Windows; or the same
 keys as a macOS configuration profile in the `com.anthropic.claudecode`
 domain, or as the `Settings` value under `HKLM\SOFTWARE\Policies\ClaudeCode`.
-Put the organization's API key in the `env` block, leave `SHRIKE_AGENT_ID`
+Prefer `SHRIKE_API_KEY_HELPER` in the `env` block over the key itself: a
+command that reads the key from your secrets manager or keychain at run time
+(for example `security find-generic-password -s shrike -w` on macOS), so no
+settings file on any machine holds it and rotation happens in one place. A
+plain `SHRIKE_API_KEY` there still works. Leave `SHRIKE_AGENT_ID`
 unset so every machine is a seat, and add `"allowManagedHooksOnly": true` to
 run only the hooks the organization deploys. Cursor teams distribute the
 shell hook through Cursor's team hooks, or ship `.cursor/hooks.json` with the

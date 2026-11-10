@@ -47,8 +47,18 @@ if [ -z "$key_env" ] && [ -f "$CONFIG_FILE" ]; then
 fi
 key_env="${key_env:-SHRIKE_API_KEY}"
 
+# A key counts as configured when it is set by the plugin's own option, by a
+# key helper the operator configured, or in the named variable. Without Node
+# none of them can be used to scan, but the difference matters: configured
+# means the operator asked for governance, so the failure posture below
+# applies instead of a quiet inert pass.
+key_helper="${SHRIKE_API_KEY_HELPER:-}"
+if [ -z "$key_helper" ] && [ -f "$CONFIG_FILE" ]; then
+  key_helper="$(sed -n 's/.*"api_key_helper"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$CONFIG_FILE" | head -n1 || true)"
+fi
+
 # No key configured → the hook is inert regardless of runtime; permit quietly.
-if [ -z "${!key_env:-}" ]; then
+if [ -z "${CLAUDE_PLUGIN_OPTION_API_KEY:-}" ] && [ -z "$key_helper" ] && [ -z "${!key_env:-}" ]; then
   echo "[shrike] hook inert: set $key_env to enable enforcement (free key: see the README, Setup)" >&2
   exit 0
 fi

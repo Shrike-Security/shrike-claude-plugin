@@ -18,7 +18,7 @@ does the same thing.
 
 | Plugin | What it does |
 |---|---|
-| `shrike-security` | Scans shell commands and file writes before they execute and routes on the verdict: allow, warn, require approval, or block. Bundles the `governed-tool-use` skill and the shrike-mcp security tools. |
+| `shrike-security` | Governs the actions Claude Code takes, against the policy you declare. Scans shell commands, file writes, notebook edits, web searches and fetches, and the brief handed to a sub-agent before they execute, applying your policy in real time to what's allowed, warned, held for approval, or blocked. Shrike doesn't decide on its own authority; you declare the policy and Shrike enforces it. Scans the reply and a sub-agent's report, and keys every scan to the exchange it served. Bundles the `governed-tool-use` skill and the shrike-mcp security tools. |
 
 Full documentation is in [the plugin's README](plugins/shrike-security/README.md).
 

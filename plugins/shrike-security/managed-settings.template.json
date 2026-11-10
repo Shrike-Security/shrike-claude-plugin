@@ -2,12 +2,12 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash|Write|Edit|NotebookEdit|WebSearch|WebFetch",
+        "matcher": "Agent|SubagentHandback|Bash|Write|Edit|NotebookEdit|WebSearch|WebFetch|mcp__.*|Read|Grep|Glob",
         "hooks": [
           {
             "type": "command",
             "command": "\"/usr/local/lib/shrike-hook/shrike-pretooluse.sh\"",
-            "timeout": 30,
+            "timeout": 40,
             "statusMessage": "Shrike is scanning this action…"
           }
         ]
@@ -15,7 +15,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Bash|Write|Edit|NotebookEdit|WebSearch|WebFetch",
+        "matcher": "Agent|SubagentHandback|Bash|Write|Edit|NotebookEdit|WebSearch|WebFetch|mcp__.*|Read|Grep|Glob",
         "hooks": [
           {
             "type": "command",
@@ -27,7 +27,7 @@
     ],
     "PostToolUseFailure": [
       {
-        "matcher": "Bash|Write|Edit|NotebookEdit|WebSearch|WebFetch",
+        "matcher": "Agent|SubagentHandback|Bash|Write|Edit|NotebookEdit|WebSearch|WebFetch|mcp__.*|Read|Grep|Glob",
         "hooks": [
           {
             "type": "command",
@@ -38,6 +38,39 @@
       }
     ],
     "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/usr/local/lib/shrike-hook/shrike-pretooluse.sh\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/usr/local/lib/shrike-hook/shrike-pretooluse.sh\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/usr/local/lib/shrike-hook/shrike-pretooluse.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
       {
         "hooks": [
           {

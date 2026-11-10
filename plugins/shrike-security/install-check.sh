@@ -25,11 +25,8 @@ printf '%s\n' '{ "model": "opus", "hooks": { "PreToolUse": [ { "matcher": "Bash"
 
 bash "$SCRIPT_DIR/install.sh" >/dev/null
 
-# The expected event set is READ FROM hooks.json, never written as a literal.
-# On 2026-10-05 this file pinned exactly three events while the plugin
-# registered six, so it passed against stale truth and reported the installer
-# broken when the installer was the correct one. A literal here is a second
-# source of truth for something that already has one.
+# The expected event set is read from hooks.json, never written as a literal,
+# so this check cannot drift from what the plugin registers.
 EVENTS="$(jq -r '.hooks | keys | sort | join(",")' "$SCRIPT_DIR/hooks/hooks.json")"
 NEVENTS="$(jq -r '.hooks | keys | length' "$SCRIPT_DIR/hooks/hooks.json")"
 
@@ -70,12 +67,9 @@ bash "$SCRIPT_DIR/install.sh" --managed --hook-dir /opt/shrike-hook > "$T/manage
 managed_policy_complete() { jq -e --argjson n "$NEVENTS" '(.hooks | keys | length) == $n and .env.SHRIKE_API_KEY == "REPLACE_WITH_THE_ORG_API_KEY" and (.hooks.PreToolUse[0].hooks[0].command | test("/opt/shrike-hook/"))' "$T/managed.json" >/dev/null; }
 check "managed policy carries every event and the env block" managed_policy_complete
 
-# managed-settings.template.json is what an organization pushes through MDM to
-# every machine in a fleet, so a template narrower than the plugin governs a
-# whole fleet more narrowly than a single install, with no error anywhere. It
-# carried three events on three tools until 2026-10-05. Rather than assert a
-# shape, assert EQUALITY with what the installer prints for the documented
-# managed hook directory: the template cannot drift from the installer again.
+# managed-settings.template.json is what an organization pushes to every
+# machine in a fleet, so it must match what the installer prints for the
+# documented managed hook directory exactly.
 jq -S . "$SCRIPT_DIR/managed-settings.template.json" > "$T/template.json"
 bash "$SCRIPT_DIR/install.sh" --managed --hook-dir /usr/local/lib/shrike-hook 2>/dev/null | jq -S . > "$T/printed.json" || true
 managed_template_matches_installer() { diff -q "$T/template.json" "$T/printed.json" >/dev/null; }

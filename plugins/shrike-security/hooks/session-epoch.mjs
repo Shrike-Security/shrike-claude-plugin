@@ -1,32 +1,17 @@
 /**
  * Session identity for the Shrike hook.
  *
- * L9 correlates a SESSION: a stretch of continuous work with a beginning and
- * an end. The host's session id has neither. It survives restarts, resumes and
- * compactions, so on one machine a single id accumulated 10,186 scans across
- * 15 days. Session risk only ever climbs, so it reached its ceiling and
- * locked, and from then on every benign prompt came back as a multi-turn
- * attack: the same text refused on that session and allowed on a fresh one.
- * "Is this session adversarial" is not an answerable question about a
- * fortnight of work.
+ * The host's session id persists across restarts, resumes and compactions, so
+ * on its own it can span days of unrelated work. The id sent with each scan is
+ * the host session plus an epoch that starts over after a long idle gap or
+ * once a session reaches a maximum age. Within one stretch of work nothing
+ * changes.
  *
- * So the id on the wire is the host session PLUS an epoch that turns over when
- * the work does: after a long idle gap, meaning the conversation ended, or at
- * a ceiling, because a continuous marathon is still not one conversation.
- * Correlation WITHIN a working stretch is untouched, and that is the window
- * that matters, since a multi-turn attack takes minutes rather than days.
+ * The epoch lives in a small stamp file ("<start> <last>", in seconds). Other
+ * Shrike integrations on the same machine read the same file, so keep the
+ * path and format stable.
  *
- * This is not a threshold and it does not weaken detection. Only the boundary
- * of what counts as one session moves, from "forever" to "a working session".
- *
- * The stamp path and format are deliberately IDENTICAL to the in-house hook's
- * ("<start> <last>", seconds), so a machine running both during a cutover, or
- * switching from one to the other, keeps one continuous session history rather
- * than fragmenting it. If you change either, change both.
- *
- * It lives in its own module so it can be tested directly: shrike-scan.mjs
- * calls main() at import time, so anything inside it can only be exercised by
- * running the whole hook.
+ * Kept in its own module so it can be tested without running the whole hook.
  */
 
 import { readFileSync, writeFileSync } from 'node:fs';
